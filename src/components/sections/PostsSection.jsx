@@ -3,9 +3,9 @@ import { useApp } from '../../store/appStore';
 import { fmtNumber, fmtDate } from '../../utils/format';
 
 const PLATFORM_STYLES = {
-  instagram: { badge: 'badge-instagram', label: 'IG', bg: 'from-purple-400 to-pink-500' },
-  tiktok: { badge: 'badge-tiktok', label: 'TT', bg: 'from-slate-700 to-slate-900' },
-  youtube: { badge: 'badge-youtube', label: 'YT', bg: 'from-red-400 to-red-600' },
+  instagram: { badge: 'badge-instagram', label: 'IG', bg: 'from-purple-500 to-pink-600' },
+  tiktok:    { badge: 'badge-tiktok',    label: 'TT', bg: 'from-zinc-600 to-zinc-800' },
+  youtube:   { badge: 'badge-youtube',   label: 'YT', bg: 'from-red-500 to-red-700' },
 };
 
 const TYPE_ICONS = {
@@ -33,9 +33,9 @@ const TYPE_ICONS = {
 
 function Metric({ icon, value }) {
   return (
-    <span className="flex items-center gap-1 text-xs text-ink-muted">
+    <span className="flex items-center gap-1 text-xs text-text-muted">
       {icon}
-      <span className="font-medium text-ink">{fmtNumber(value)}</span>
+      <span className="font-medium text-text-secondary">{fmtNumber(value)}</span>
     </span>
   );
 }
@@ -46,24 +46,23 @@ function PostCard({ post }) {
 
   return (
     <div className="card card-hover overflow-hidden group">
-      <div className="relative aspect-square overflow-hidden bg-primary-50">
+      <div className="relative aspect-square overflow-hidden post-thumb-bg">
         {post.thumbnail && !imgErr ? (
           <img
             src={post.thumbnail}
-            alt={post.caption?.slice(0, 40) || 'Post'}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            alt={post.caption?.slice(0, 40) || 'Publicación'}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             onError={() => setImgErr(true)}
           />
         ) : (
           <div className={`w-full h-full bg-gradient-to-br ${style.bg} flex items-center justify-center`}>
-            <span className="text-white/60 text-3xl font-display font-bold">{style.label}</span>
+            <span className="text-white/30 text-3xl font-display font-bold">{style.label}</span>
           </div>
         )}
-
         <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
           <span className={`badge ${style.badge}`}>{post.platform}</span>
           {TYPE_ICONS[post.type] && (
-            <span className="badge bg-black/40 text-white backdrop-blur-sm border-0">
+            <span className="badge post-type-badge">
               {TYPE_ICONS[post.type]}
               {post.type}
             </span>
@@ -73,9 +72,8 @@ function PostCard({ post }) {
 
       <div className="p-4">
         {post.caption && (
-          <p className="text-sm text-ink line-clamp-2 mb-3 leading-relaxed">{post.caption}</p>
+          <p className="text-sm text-text-secondary line-clamp-2 mb-3 leading-relaxed">{post.caption}</p>
         )}
-
         <div className="flex items-center gap-3 flex-wrap">
           <Metric
             icon={<svg className="w-3 h-3 text-red-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>}
@@ -87,17 +85,14 @@ function PostCard({ post }) {
           />
           {post.views > 0 && (
             <Metric
-              icon={<svg className="w-3 h-3 text-primary-300" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>}
+              icon={<svg className="w-3 h-3 text-text-muted" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>}
               value={post.views}
             />
           )}
         </div>
-
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-ink-faint/30">
-          <span className="text-xs text-ink-muted">{fmtDate(post.timestamp)}</span>
-          <span className="text-xs font-semibold text-primary bg-primary-50 px-2 py-0.5 rounded-full">
-            {fmtNumber(post.engagement)} eng
-          </span>
+        <div className="flex items-center justify-between mt-3 pt-3 post-card-footer">
+          <span className="text-xs text-text-muted">{fmtDate(post.timestamp)}</span>
+          <span className="post-engagement-badge">{fmtNumber(post.engagement)} interac.</span>
         </div>
       </div>
     </div>
@@ -105,23 +100,31 @@ function PostCard({ post }) {
 }
 
 const SORT_OPTIONS = [
-  { value: 'engagement', label: 'Engagement' },
-  { value: 'likes', label: 'Likes' },
-  { value: 'comments', label: 'Comments' },
-  { value: 'views', label: 'Views' },
-  { value: 'date', label: 'Newest' },
+  { value: 'engagement', label: 'Interacción' },
+  { value: 'likes',      label: 'Me gusta' },
+  { value: 'comments',   label: 'Comentarios' },
+  { value: 'views',      label: 'Vistas' },
+  { value: 'date',       label: 'Más recientes' },
 ];
 
 const TYPE_FILTERS = ['all', 'video', 'image', 'carousel', 'short'];
+
+const TYPE_LABELS = {
+  all:      'Todos',
+  video:    'Video',
+  image:    'Imagen',
+  carousel: 'Carrusel',
+  short:    'Short',
+};
 
 export default function PostsSection() {
   const { state } = useApp();
   const { posts, credentials } = state;
 
   const [platformFilter, setPlatformFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('engagement');
-  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter]         = useState('all');
+  const [sortBy, setSortBy]                 = useState('engagement');
+  const [search, setSearch]                 = useState('');
 
   const enabledPlatforms = Object.entries(credentials.platforms)
     .filter(([, p]) => p.enabled)
@@ -130,7 +133,7 @@ export default function PostsSection() {
   const filtered = useMemo(() => {
     let result = posts;
     if (platformFilter !== 'all') result = result.filter(p => p.platform === platformFilter);
-    if (typeFilter !== 'all') result = result.filter(p => p.type === typeFilter);
+    if (typeFilter !== 'all')     result = result.filter(p => p.type === typeFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(p => p.caption?.toLowerCase().includes(q) || p.hashtags?.some(h => h.toLowerCase().includes(q)));
@@ -144,9 +147,9 @@ export default function PostsSection() {
   if (posts.length === 0) {
     return (
       <div className="space-y-6 animate-fade-in">
-        <h1 className="section-title">Posts</h1>
+        <h1 className="section-title">Publicaciones</h1>
         <div className="card p-12 text-center">
-          <p className="text-ink-muted">No posts yet — sync your data from the sidebar.</p>
+          <p className="text-text-secondary text-sm">Sin publicaciones — sincroniza tus datos desde el panel lateral.</p>
         </div>
       </div>
     );
@@ -154,58 +157,54 @@ export default function PostsSection() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="section-title">Posts</h1>
-          <p className="text-ink-muted mt-1">{filtered.length} of {posts.length} posts</p>
-        </div>
+      <div>
+        <h1 className="section-title">Publicaciones</h1>
+        <p className="text-text-secondary mt-2 text-sm">{filtered.length} de {posts.length} publicaciones</p>
       </div>
 
       <div className="card p-4 space-y-3">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-48">
-            <svg className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted" viewBox="0 0 20 20" fill="currentColor">
+            <svg className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
             </svg>
             <input
               type="text"
               className="input-field pl-10 py-2.5"
-              placeholder="Search by caption or hashtag…"
+              placeholder="Buscar por descripción o hashtag…"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-
           <select
             className="input-field w-auto py-2.5 pr-8"
             value={sortBy}
             onChange={e => setSortBy(e.target.value)}
           >
-            {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>Sort: {o.label}</option>)}
+            {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>Ordenar: {o.label}</option>)}
           </select>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="label mr-1">Platform:</div>
+          <div className="label mr-1">Plataforma:</div>
           {['all', ...enabledPlatforms].map(p => (
             <button
               key={p}
               onClick={() => setPlatformFilter(p)}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all duration-150 ${platformFilter === p ? 'bg-primary text-white' : 'bg-ink-faint/30 text-ink-muted hover:bg-primary-50 hover:text-primary'}`}
+              className={`filter-pill ${platformFilter === p ? 'filter-pill-active' : ''}`}
             >
-              {p === 'all' ? 'All' : p.charAt(0).toUpperCase() + p.slice(1)}
+              {p === 'all' ? 'Todas' : p.charAt(0).toUpperCase() + p.slice(1)}
             </button>
           ))}
-
-          <span className="w-px h-4 bg-ink-faint mx-1" />
-          <div className="label mr-1">Type:</div>
+          <span className="w-px h-4 mx-1 filter-separator" />
+          <div className="label mr-1">Tipo:</div>
           {TYPE_FILTERS.map(t => (
             <button
               key={t}
               onClick={() => setTypeFilter(t)}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all duration-150 ${typeFilter === t ? 'bg-primary text-white' : 'bg-ink-faint/30 text-ink-muted hover:bg-primary-50 hover:text-primary'}`}
+              className={`filter-pill ${typeFilter === t ? 'filter-pill-active' : ''}`}
             >
-              {t === 'all' ? 'All' : t}
+              {TYPE_LABELS[t]}
             </button>
           ))}
         </div>
@@ -213,9 +212,9 @@ export default function PostsSection() {
 
       {filtered.length === 0 ? (
         <div className="card p-10 text-center">
-          <p className="text-ink-muted">No posts match your filters.</p>
+          <p className="text-text-secondary text-sm">Ninguna publicación coincide con tus filtros.</p>
           <button onClick={() => { setPlatformFilter('all'); setTypeFilter('all'); setSearch(''); }} className="btn-ghost mt-3 mx-auto">
-            Clear filters
+            Limpiar filtros
           </button>
         </div>
       ) : (

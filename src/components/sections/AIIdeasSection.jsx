@@ -2,9 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../../store/appStore';
 import { generateContentIdeas, sendChatMessage } from '../../services/openaiService';
 
-const PLATFORMS = ['Any', 'instagram', 'tiktok', 'youtube'];
-const CONTENT_TYPES = ['Any', 'Short video', 'Carousel', 'Tutorial', 'Behind the scenes', 'Trend', 'Educational', 'Entertainment'];
-const TONES = ['Engaging & authentic', 'Funny & relatable', 'Inspirational', 'Educational', 'Bold & provocative', 'Calm & aesthetic'];
+const PLATFORMS = ['Cualquiera', 'instagram', 'tiktok', 'youtube'];
+const CONTENT_TYPES = ['Cualquiera', 'Video corto', 'Carrusel', 'Tutorial', 'Detrás de cámaras', 'Tendencia', 'Educativo', 'Entretenimiento'];
+const TONES = ['Auténtico y cercano', 'Divertido y relatable', 'Inspiracional', 'Educativo', 'Atrevido', 'Estético y tranquilo'];
 
 function SparkleIcon() {
   return (
@@ -28,14 +28,9 @@ function FormattedOutput({ text }) {
   return (
     <div className="ai-output">
       {text.split('\n').map((line, i) => {
-        if (line.startsWith('🎯') || line.startsWith('📝') || line.startsWith('🏷') || line.startsWith('💡')) {
-          return (
-            <p key={i} className={`mt-${i === 0 ? 0 : 2} ${line.startsWith('🎯') ? 'font-semibold text-ink' : 'text-ink-muted'}`}>
-              {line}
-            </p>
-          );
-        }
-        if (line.startsWith('---')) return <hr key={i} className="my-4 border-ink-faint/40" />;
+        if (line.startsWith('🎯') || line.startsWith('📝') || line.startsWith('🏷') || line.startsWith('💡'))
+          return <p key={i} className={`${i === 0 ? '' : 'mt-2'} ${line.startsWith('🎯') ? 'font-semibold text-text-primary' : 'text-text-secondary'}`}>{line}</p>;
+        if (line.startsWith('---')) return <hr key={i} className="my-4 border-base-800" />;
         if (line.trim() === '') return <div key={i} className="h-2" />;
         return <p key={i}>{line}</p>;
       })}
@@ -44,13 +39,13 @@ function FormattedOutput({ text }) {
 }
 
 function IdeasTab({ posts, credentials }) {
-  const [platform, setPlatform] = useState('Any');
-  const [contentType, setContentType] = useState('Any');
-  const [tone, setTone] = useState('Engaging & authentic');
-  const [count, setCount] = useState(5);
-  const [result, setResult] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [platform, setPlatform]     = useState('Cualquiera');
+  const [contentType, setContentType] = useState('Cualquiera');
+  const [tone, setTone]             = useState('Auténtico y cercano');
+  const [count, setCount]           = useState(5);
+  const [result, setResult]         = useState('');
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
 
   async function handleGenerate() {
     if (loading) return;
@@ -58,12 +53,10 @@ function IdeasTab({ posts, credentials }) {
     setError('');
     try {
       const text = await generateContentIdeas(
-        credentials.openaiKey,
-        posts,
-        platform === 'Any' ? '' : platform,
-        contentType === 'Any' ? '' : contentType,
-        tone,
-        count,
+        credentials.openaiKey, posts,
+        platform === 'Cualquiera' ? '' : platform,
+        contentType === 'Cualquiera' ? '' : contentType,
+        tone, count,
       );
       setResult(text);
     } catch (err) {
@@ -78,13 +71,13 @@ function IdeasTab({ posts, credentials }) {
       <div className="card p-5 space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="label block mb-1.5">Platform</label>
+            <label className="label block mb-1.5">Plataforma</label>
             <select className="input-field py-2.5" value={platform} onChange={e => setPlatform(e.target.value)}>
-              {PLATFORMS.map(p => <option key={p} value={p}>{p === 'Any' ? 'Any platform' : p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+              {PLATFORMS.map(p => <option key={p} value={p}>{p === 'Cualquiera' ? 'Cualquier plataforma' : p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
             </select>
           </div>
           <div>
-            <label className="label block mb-1.5">Content Type</label>
+            <label className="label block mb-1.5">Tipo de contenido</label>
             <select className="input-field py-2.5" value={contentType} onChange={e => setContentType(e.target.value)}>
               {CONTENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -92,33 +85,20 @@ function IdeasTab({ posts, credentials }) {
         </div>
 
         <div>
-          <label className="label block mb-1.5">Tone / Style</label>
+          <label className="label block mb-1.5">Tono / Estilo</label>
           <div className="flex flex-wrap gap-2">
             {TONES.map(t => (
-              <button
-                key={t}
-                onClick={() => setTone(t)}
-                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-150 ${tone === t ? 'bg-primary text-white' : 'bg-ink-faint/30 text-ink-muted hover:bg-primary-50 hover:text-primary'}`}
-              >
-                {t}
-              </button>
+              <button key={t} onClick={() => setTone(t)} className={`tone-pill ${tone === t ? 'tone-pill-active' : ''}`}>{t}</button>
             ))}
           </div>
         </div>
 
         <div>
-          <label className="label block mb-1.5">Number of ideas: <span className="text-primary font-bold normal-case">{count}</span></label>
-          <input
-            type="range"
-            min={3}
-            max={10}
-            value={count}
-            onChange={e => setCount(Number(e.target.value))}
-            className="w-full accent-primary cursor-pointer"
-          />
-          <div className="flex justify-between text-xs text-ink-muted mt-1">
-            <span>3</span><span>10</span>
-          </div>
+          <label className="label block mb-1.5">
+            Número de ideas: <span className="text-accent-DEFAULT font-bold normal-case">{count}</span>
+          </label>
+          <input type="range" min={3} max={10} value={count} onChange={e => setCount(Number(e.target.value))} className="w-full cursor-pointer accent-accent-DEFAULT" />
+          <div className="flex justify-between text-xs text-text-muted mt-1"><span>3</span><span>10</span></div>
         </div>
 
         <button onClick={handleGenerate} disabled={loading} className="btn-primary w-full">
@@ -127,35 +107,30 @@ function IdeasTab({ posts, credentials }) {
               <svg className="w-4 h-4 animate-spin-slow" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="20 40" />
               </svg>
-              Generating ideas…
+              Generando ideas…
             </>
           ) : (
-            <><SparkleIcon /> Generate {count} Ideas</>
+            <><SparkleIcon /> Generar {count} ideas</>
           )}
         </button>
 
-        {error && <p className="text-red-500 text-sm">⚠️ {error}</p>}
+        {error && <p className="text-red-600 text-sm">⚠️ {error}</p>}
       </div>
 
       {result && (
         <div className="card p-6 animate-slide-up">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display font-semibold text-ink">Generated Ideas</h3>
-            <button
-              onClick={() => navigator.clipboard.writeText(result)}
-              className="btn-ghost text-xs py-1.5 px-3"
-            >
-              Copy all
-            </button>
+            <h3 className="font-display font-semibold text-text-primary" style={{ letterSpacing: '-0.02em' }}>Ideas generadas</h3>
+            <button onClick={() => navigator.clipboard.writeText(result)} className="btn-ghost text-xs py-1.5 px-3">Copiar todo</button>
           </div>
           <FormattedOutput text={result} />
         </div>
       )}
 
       {!result && !loading && (
-        <div className="card p-8 text-center border-dashed border-2 border-ink-faint/40 bg-transparent shadow-none">
+        <div className="ideas-empty p-8 text-center">
           <SparkleIcon />
-          <p className="text-ink-muted text-sm mt-3">Configure your preferences above and click Generate to get AI-powered content ideas based on your top posts.</p>
+          <p className="text-text-muted text-sm mt-3">Configura tus preferencias arriba y haz clic en Generar para obtener ideas de contenido impulsadas por IA.</p>
         </div>
       )}
     </div>
@@ -164,19 +139,14 @@ function IdeasTab({ posts, credentials }) {
 
 function ChatTab({ posts, credentials }) {
   const [messages, setMessages] = useState([
-    {
-      role: 'assistant',
-      content: `Hey! I'm your AI content strategist. I've analyzed ${posts.length} of your posts and I'm ready to help with strategy, ideas, optimization, or anything else. What's on your mind?`,
-    },
+    { role: 'assistant', content: `¡Hola! Soy tu estratega de contenido IA. He analizado ${posts.length} de tus publicaciones y estoy listo para ayudarte. ¿En qué piensas?` },
   ]);
-  const [input, setInput] = useState('');
+  const [input, setInput]     = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
-  const inputRef = useRef(null);
+  const inputRef  = useRef(null);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   async function handleSend() {
     if (!input.trim() || loading) return;
@@ -184,10 +154,9 @@ function ChatTab({ posts, credentials }) {
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setLoading(true);
-
     try {
       const history = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }));
-      const reply = await sendChatMessage(credentials.openaiKey, history, posts, credentials);
+      const reply   = await sendChatMessage(credentials.openaiKey, history, posts, credentials);
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch (err) {
       setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ Error: ${err.message}` }]);
@@ -198,21 +167,18 @@ function ChatTab({ posts, credentials }) {
   }
 
   function handleKeyDown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   }
 
   return (
-    <div className="card overflow-hidden flex flex-col" style={{ height: 560 }}>
-      <div className="p-4 border-b border-ink-faint/30 flex items-center gap-3">
-        <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+    <div className="card overflow-hidden flex flex-col chat-container">
+      <div className="p-4 chat-header flex items-center gap-3">
+        <div className="w-8 h-8 rounded-full flex items-center justify-center chat-avatar flex-shrink-0">
           <SparkleIcon />
         </div>
         <div>
-          <p className="font-semibold text-ink text-sm">AI Strategist</p>
-          <p className="text-xs text-emerald-500 font-medium">● Online</p>
+          <p className="font-semibold text-text-primary text-sm" style={{ letterSpacing: '-0.01em' }}>Estratega IA</p>
+          <p className="text-xs font-medium text-accent-DEFAULT">● En línea</p>
         </div>
       </div>
 
@@ -220,8 +186,8 @@ function ChatTab({ posts, credentials }) {
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {msg.role === 'assistant' && (
-              <div className="w-7 h-7 bg-primary-50 border border-primary-100 rounded-full flex items-center justify-center flex-shrink-0 mr-2 mt-1">
-                <svg className="w-3.5 h-3.5 text-primary" viewBox="0 0 24 24" fill="currentColor">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mr-2 mt-1 chat-ai-avatar">
+                <svg className="w-3.5 h-3.5 text-accent-DEFAULT" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2a7 7 0 0 1 7 7c0 2.5-1.3 4.7-3.3 6H8.3A7 7 0 0 1 5 9a7 7 0 0 1 7-7z" />
                 </svg>
               </div>
@@ -233,16 +199,16 @@ function ChatTab({ posts, credentials }) {
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="w-7 h-7 bg-primary-50 border border-primary-100 rounded-full flex items-center justify-center mr-2 flex-shrink-0">
-              <svg className="w-3.5 h-3.5 text-primary" viewBox="0 0 24 24" fill="currentColor">
+            <div className="w-7 h-7 rounded-full flex items-center justify-center mr-2 flex-shrink-0 chat-ai-avatar">
+              <svg className="w-3.5 h-3.5 text-accent-DEFAULT" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2a7 7 0 0 1 7 7c0 2.5-1.3 4.7-3.3 6H8.3A7 7 0 0 1 5 9a7 7 0 0 1 7-7z" />
               </svg>
             </div>
             <div className="chat-bubble-ai">
               <div className="flex gap-1 items-center h-4">
-                <div className="w-1.5 h-1.5 bg-ink-muted rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-1.5 h-1.5 bg-ink-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-1.5 h-1.5 bg-ink-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="w-1.5 h-1.5 rounded-full bg-base-700 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-1.5 h-1.5 rounded-full bg-base-700 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-1.5 h-1.5 rounded-full bg-base-700 animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
@@ -250,27 +216,23 @@ function ChatTab({ posts, credentials }) {
         <div ref={bottomRef} />
       </div>
 
-      <div className="p-4 border-t border-ink-faint/30">
+      <div className="p-4 chat-input-area">
         <div className="flex gap-2">
           <textarea
             ref={inputRef}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about strategy, trends, your top content…"
+            placeholder="Pregunta sobre estrategia, tendencias, tu mejor contenido…"
             rows={1}
             className="input-field resize-none py-2.5 text-sm flex-1"
-            style={{ minHeight: 44, maxHeight: 120 }}
+            style={{ minHeight: '44px', maxHeight: '120px' }}
           />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || loading}
-            className="btn-primary px-4 self-end"
-          >
+          <button onClick={handleSend} disabled={!input.trim() || loading} className="btn-primary px-4 self-end">
             <SendIcon />
           </button>
         </div>
-        <p className="text-xs text-ink-muted mt-2">Press Enter to send, Shift+Enter for new line.</p>
+        <p className="text-xs text-text-muted mt-2">Presiona Enter para enviar, Shift+Enter para nueva línea.</p>
       </div>
     </div>
   );
@@ -283,25 +245,23 @@ export default function AIIdeasSection() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="section-title">AI Ideas</h1>
-          <p className="text-ink-muted mt-1">Content generation powered by your real data</p>
-        </div>
+      <div>
+        <h1 className="section-title">Ideas IA</h1>
+        <p className="text-text-secondary mt-2 text-sm">Generación de contenido potenciada por tus datos reales</p>
       </div>
 
       <div className="flex gap-2">
         <button onClick={() => setTab('ideas')} className={`tab-btn ${tab === 'ideas' ? 'tab-btn-active' : 'tab-btn-inactive'}`}>
-          ✨ Generate Ideas
+          ✨ Generar ideas
         </button>
         <button onClick={() => setTab('chat')} className={`tab-btn ${tab === 'chat' ? 'tab-btn-active' : 'tab-btn-inactive'}`}>
-          💬 AI Chat
+          💬 Chat IA
         </button>
       </div>
 
       {posts.length === 0 && (
-        <div className="card p-4 bg-primary-50 border-primary-100 text-sm text-primary">
-          💡 Sync your platform data first for more targeted, data-driven ideas.
+        <div className="ai-info-banner p-4 text-sm">
+          💡 Sincroniza primero tus plataformas para obtener ideas más precisas y orientadas a datos.
         </div>
       )}
 
