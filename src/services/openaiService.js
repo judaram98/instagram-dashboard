@@ -1,5 +1,5 @@
 const OPENAI_API = 'https://api.openai.com/v1/chat/completions';
-const MODEL = 'gpt-4o-mini';
+const MODEL      = 'gpt-4o-mini';
 
 async function chat(apiKey, messages, maxTokens = 1500, temperature = 0.75) {
   const res = await fetch(OPENAI_API, {
@@ -13,7 +13,7 @@ async function chat(apiKey, messages, maxTokens = 1500, temperature = 0.75) {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error?.message || `OpenAI error (HTTP ${res.status})`);
+    throw new Error(body.error?.message || `Error de OpenAI (HTTP ${res.status})`);
   }
 
   const data = await res.json();
@@ -25,7 +25,7 @@ function buildPostContext(posts, limit = 12) {
     .sort((a, b) => b.engagement - a.engagement)
     .slice(0, limit)
     .map(p =>
-      `[${p.platform.toUpperCase()}] ${p.type} | Engagement: ${p.engagement} | Views: ${p.views?.toLocaleString() || 0} | "${(p.caption || '').slice(0, 90)}"`
+      `[${p.platform.toUpperCase()}] ${p.type} | Interacción: ${p.engagement} | Vistas: ${p.views?.toLocaleString('es-MX') || 0} | "${(p.caption || '').slice(0, 90)}"`
     )
     .join('\n');
 }
@@ -36,26 +36,26 @@ export async function generateContentIdeas(apiKey, posts, platform, contentType,
   const messages = [
     {
       role: 'system',
-      content: 'You are a creative social media strategist who generates highly targeted, data-driven content ideas for content creators.',
+      content: 'Eres un estratega creativo de redes sociales especializado en generar ideas de contenido altamente enfocadas y basadas en datos para creadores de contenido hispanohablantes. Responde siempre en español.',
     },
     {
       role: 'user',
-      content: `Generate ${count} content ideas based on my top-performing posts.
+      content: `Genera ${count} ideas de contenido basadas en mis publicaciones con mejor rendimiento.
 
-MY BEST POSTS:
-${context || 'No data yet — suggest ideas for a growing creator.'}
+MIS MEJORES PUBLICACIONES:
+${context || 'Sin datos aún — sugiere ideas para un creador en crecimiento.'}
 
-REQUIREMENTS:
-• Platform: ${platform || 'Any'}
-• Content type: ${contentType || 'Any'}
-• Tone/style: ${tone || 'Engaging and authentic'}
+REQUISITOS:
+• Plataforma: ${platform || 'Cualquiera'}
+• Tipo de contenido: ${contentType || 'Cualquiera'}
+• Tono/estilo: ${tone || 'Auténtico y cercano'}
 
-For EACH idea, format exactly like this:
+Para CADA idea, usa exactamente este formato:
 
-🎯 **[Title / Hook]**
-📝 [2-sentence concept]
-🏷️ [5 hashtags]
-💡 [Why it will perform well based on my data]
+🎯 **[Título / Gancho]**
+📝 [Concepto en 2 oraciones]
+🏷️ [5 hashtags relevantes]
+💡 [Por qué funcionará bien según mis datos]
 
 ---`,
     },
@@ -74,57 +74,57 @@ export async function sendChatMessage(apiKey, history, posts, credentials) {
     ? Math.round(posts.reduce((s, p) => s + p.engagement, 0) / posts.length)
     : 0;
 
-  const system = `You are an expert social media analytics assistant for a content creator.
+  const system = `Eres un asistente experto en analíticas de redes sociales para un creador de contenido hispanohablante.
 
-CREATOR DATA:
-• Connected platforms: ${enabledPlatforms || 'none yet'}
-• Total posts analyzed: ${posts.length}
-• Average engagement per post: ${avgEng}
+DATOS DEL CREADOR:
+• Plataformas conectadas: ${enabledPlatforms || 'ninguna aún'}
+• Total de publicaciones analizadas: ${posts.length}
+• Interacción promedio por publicación: ${avgEng.toLocaleString('es-MX')}
 
-TOP POSTS (by engagement):
+MEJORES PUBLICACIONES (por interacción):
 ${buildPostContext(posts)}
 
-Give specific, data-driven advice. Reference their actual metrics when relevant. Be conversational but insightful. Keep replies concise (under 250 words unless asked to elaborate).`;
+Da consejos específicos y basados en datos. Haz referencia a las métricas reales del creador cuando sea relevante. Sé conversacional pero perspicaz. Mantén las respuestas concisas (menos de 250 palabras a menos que te pidan más detalle). Responde siempre en español.`;
 
   const messages = [{ role: 'system', content: system }, ...history];
   return chat(apiKey, messages, 800, 0.7);
 }
 
 export async function analyzeAudience(apiKey, posts) {
-  if (posts.length === 0) throw new Error('No posts to analyze');
+  if (posts.length === 0) throw new Error('No hay publicaciones para analizar');
 
   const sample = posts.slice(0, 30).map(p => ({
-    platform: p.platform,
-    type: p.type,
-    engagement: p.engagement,
-    views: p.views,
-    likes: p.likes,
-    comments: p.comments,
-    engRate: p.engagementRate,
-    hour: new Date(p.timestamp).getHours(),
-    weekday: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(p.timestamp).getDay()],
-    hashtags: (p.hashtags || []).slice(0, 5),
+    plataforma:  p.platform,
+    tipo:        p.type,
+    interaccion: p.engagement,
+    vistas:      p.views,
+    likes:       p.likes,
+    comentarios: p.comments,
+    tasaEng:     p.engagementRate,
+    hora:        new Date(p.timestamp).getHours(),
+    diaSemana:   ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][new Date(p.timestamp).getDay()],
+    hashtags:    (p.hashtags || []).slice(0, 5),
   }));
 
   const messages = [
     {
       role: 'system',
-      content: 'You are an expert social media analyst. Provide deep, actionable, numbered insights.',
+      content: 'Eres un analista experto en redes sociales. Proporciona insights profundos, accionables y numerados. Responde siempre en español.',
     },
     {
       role: 'user',
-      content: `Analyze my content performance from this data and provide strategic insights:
+      content: `Analiza el rendimiento de mi contenido a partir de estos datos y proporciona insights estratégicos:
 
 ${JSON.stringify(sample, null, 2)}
 
-Structure your response with these headers:
+Estructura tu respuesta con estos encabezados:
 
-## 🧑‍💻 Audience Behavior
-## 📊 Content Performance Breakdown
-## ⏰ Best Times to Post
-## #️⃣ Hashtag Strategy
-## 🚀 Top 3 Growth Actions
-## 🔥 Virality Score (1–10) with explanation`,
+## 🧑‍💻 Comportamiento de la audiencia
+## 📊 Análisis de rendimiento del contenido
+## ⏰ Mejores horarios para publicar
+## #️⃣ Estrategia de hashtags
+## 🚀 Top 3 acciones de crecimiento
+## 🔥 Puntuación de viralidad (1–10) con explicación`,
     },
   ];
 
@@ -150,38 +150,38 @@ export async function predictVirality(apiKey, concept, posts) {
   const messages = [
     {
       role: 'system',
-      content: 'You are a viral content prediction expert. Provide specific numerical predictions.',
+      content: 'Eres un experto en predicción de contenido viral. Proporciona predicciones numéricas específicas. Responde siempre en español.',
     },
     {
       role: 'user',
-      content: `Predict the viral potential for this content concept:
+      content: `Predice el potencial viral de este concepto de contenido:
 
-CONCEPT: "${concept}"
+CONCEPTO: "${concept}"
 
-MY BASELINE:
-• Avg engagement/post: ${avgEng}
-• Avg views/post: ${avgViews.toLocaleString()}
-• Posts analyzed: ${posts.length}
-• My best hashtags: ${topTags.join(', ') || 'none yet'}
+MI LÍNEA BASE:
+• Interacción promedio/publicación: ${avgEng.toLocaleString('es-MX')}
+• Vistas promedio/publicación: ${avgViews.toLocaleString('es-MX')}
+• Publicaciones analizadas: ${posts.length}
+• Mis mejores hashtags: ${topTags.join(', ') || 'ninguno aún'}
 
-Format your response exactly like this:
+Formatea tu respuesta exactamente así:
 
-## 🎯 Viral Score: X/100
+## 🎯 Puntuación viral: X/100
 
-## 📈 Predicted Engagement: [specific number]
-## 👁️ Predicted Reach: [specific number]
+## 📈 Interacción predicha: [número específico]
+## 👁️ Alcance predicho: [número específico]
 
-## ✅ Strengths
-[3 bullet points]
+## ✅ Fortalezas
+[3 puntos]
 
-## ⚠️ Risks
-[2 bullet points]
+## ⚠️ Riesgos
+[2 puntos]
 
-## ✨ Optimized Hook
-"[improved version of the concept]"
+## ✨ Gancho optimizado
+"[versión mejorada del concepto]"
 
-## 🏷️ Recommended Hashtags
-[10 specific hashtags]`,
+## 🏷️ Hashtags recomendados
+[10 hashtags específicos]`,
     },
   ];
 

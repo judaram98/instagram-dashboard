@@ -2,8 +2,8 @@ const APIFY_BASE = 'https://api.apify.com/v2';
 
 const ACTORS = {
   instagram: 'apify/instagram-scraper',
-  tiktok: 'clockworks/free-tiktok-scraper',
-  youtube: 'streamers/youtube-scraper',
+  tiktok:    'clockworks/free-tiktok-scraper',
+  youtube:   'streamers/youtube-scraper',
 };
 
 function buildInput(platform, handle) {
@@ -11,26 +11,26 @@ function buildInput(platform, handle) {
   switch (platform) {
     case 'instagram':
       return {
-        directUrls: [`https://www.instagram.com/${cleanHandle}/`],
-        resultsType: 'posts',
+        directUrls:   [`https://www.instagram.com/${cleanHandle}/`],
+        resultsType:  'posts',
         resultsLimit: 50,
         addParentData: false,
       };
     case 'tiktok':
       return {
-        profiles: [`https://www.tiktok.com/@${cleanHandle}`],
-        resultsPerPage: 50,
+        profiles:             [`https://www.tiktok.com/@${cleanHandle}`],
+        resultsPerPage:       50,
         shouldDownloadVideos: false,
         shouldDownloadCovers: false,
       };
     case 'youtube':
       return {
-        startUrls: [{ url: `https://www.youtube.com/@${cleanHandle}` }],
-        maxResults: 50,
+        startUrls:         [{ url: `https://www.youtube.com/@${cleanHandle}` }],
+        maxResults:        50,
         downloadSubtitles: false,
       };
     default:
-      throw new Error(`Unknown platform: ${platform}`);
+      throw new Error(`Plataforma desconocida: ${platform}`);
   }
 }
 
@@ -46,7 +46,7 @@ async function startRun(platform, handle, apiToken) {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error?.message || `Failed to start ${platform} actor (HTTP ${res.status})`);
+    throw new Error(body.error?.message || `Error al iniciar actor de ${platform} (HTTP ${res.status})`);
   }
 
   const data = await res.json();
@@ -55,7 +55,7 @@ async function startRun(platform, handle, apiToken) {
 
 function pollUntilSucceeded(runId, apiToken, onTick) {
   return new Promise((resolve, reject) => {
-    let attempts = 0;
+    let attempts    = 0;
     const MAX_ATTEMPTS = 120;
 
     const interval = setInterval(async () => {
@@ -63,7 +63,7 @@ function pollUntilSucceeded(runId, apiToken, onTick) {
 
       if (attempts > MAX_ATTEMPTS) {
         clearInterval(interval);
-        reject(new Error('Scraping timed out after 6 minutes'));
+        reject(new Error('El scraping expiró después de 6 minutos'));
         return;
       }
 
@@ -81,7 +81,8 @@ function pollUntilSucceeded(runId, apiToken, onTick) {
           resolve(defaultDatasetId);
         } else if (['FAILED', 'ABORTED', 'TIMED-OUT'].includes(status)) {
           clearInterval(interval);
-          reject(new Error(`Apify run ${status.toLowerCase()}`));
+          const STATUS_ES = { FAILED: 'falló', ABORTED: 'fue cancelado', 'TIMED-OUT': 'expiró' };
+          reject(new Error(`El proceso de Apify ${STATUS_ES[status] || status.toLowerCase()}`));
         }
       } catch (err) {
         if (attempts >= MAX_ATTEMPTS) {
@@ -97,67 +98,67 @@ async function fetchDatasetItems(datasetId, apiToken) {
   const res = await fetch(
     `${APIFY_BASE}/datasets/${datasetId}/items?token=${apiToken}&clean=1&format=json`
   );
-  if (!res.ok) throw new Error('Failed to fetch dataset items');
+  if (!res.ok) throw new Error('Error al descargar los datos del dataset');
   return res.json();
 }
 
 function normalizePost(raw, platform) {
   const post = {
-    id: '',
+    id:              '',
     platform,
-    type: 'post',
-    caption: '',
-    thumbnail: '',
-    url: '',
-    likes: 0,
-    comments: 0,
-    views: 0,
-    shares: 0,
-    saves: 0,
-    engagement: 0,
-    engagementRate: '0.00',
-    hashtags: [],
-    timestamp: new Date().toISOString(),
+    type:            'post',
+    caption:         '',
+    thumbnail:       '',
+    url:             '',
+    likes:           0,
+    comments:        0,
+    views:           0,
+    shares:          0,
+    saves:           0,
+    engagement:      0,
+    engagementRate:  '0.00',
+    hashtags:        [],
+    timestamp:       new Date().toISOString(),
   };
 
   if (platform === 'instagram') {
-    post.id = raw.id || raw.shortCode || String(Math.random());
-    post.caption = raw.caption || '';
+    post.id        = raw.id || raw.shortCode || String(Math.random());
+    post.caption   = raw.caption || '';
     post.thumbnail = raw.displayUrl || raw.thumbnailUrl || '';
-    post.url = raw.url || `https://www.instagram.com/p/${raw.shortCode}/`;
-    post.likes = raw.likesCount || 0;
-    post.comments = raw.commentsCount || 0;
-    post.views = raw.videoViewCount || raw.videoPlayCount || 0;
-    post.saves = raw.savesCount || 0;
-    post.type = raw.type === 'Video' ? 'video' : raw.type === 'Sidecar' ? 'carousel' : 'image';
-    post.hashtags = Array.isArray(raw.hashtags) ? raw.hashtags : [];
+    post.url       = raw.url || `https://www.instagram.com/p/${raw.shortCode}/`;
+    post.likes     = raw.likesCount || 0;
+    post.comments  = raw.commentsCount || 0;
+    post.views     = raw.videoViewCount || raw.videoPlayCount || 0;
+    post.saves     = raw.savesCount || 0;
+    post.type      = raw.type === 'Video' ? 'video' : raw.type === 'Sidecar' ? 'carousel' : 'image';
+    post.hashtags  = Array.isArray(raw.hashtags) ? raw.hashtags : [];
     post.timestamp = raw.timestamp || raw.takenAt || new Date().toISOString();
     post.engagement = post.likes + post.comments + post.saves;
   } else if (platform === 'tiktok') {
-    post.id = raw.id || String(Math.random());
-    post.caption = raw.text || raw.description || '';
+    post.id        = raw.id || String(Math.random());
+    post.caption   = raw.text || raw.description || '';
     post.thumbnail = raw.coverUrl || raw.cover || '';
-    post.url = raw.webVideoUrl || raw.url || '';
-    post.likes = raw.diggCount || raw.likesCount || 0;
-    post.comments = raw.commentCount || raw.commentsCount || 0;
-    post.views = raw.playCount || raw.viewCount || 0;
-    post.shares = raw.shareCount || 0;
-    post.type = 'video';
-    post.hashtags = (raw.hashtags || []).map(h => (typeof h === 'string' ? h : h.name || '')).filter(Boolean);
+    post.url       = raw.webVideoUrl || raw.url || '';
+    post.likes     = raw.diggCount || raw.likesCount || 0;
+    post.comments  = raw.commentCount || raw.commentsCount || 0;
+    post.views     = raw.playCount || raw.viewCount || 0;
+    post.shares    = raw.shareCount || 0;
+    post.type      = 'video';
+    post.hashtags  = (raw.hashtags || []).map(h => (typeof h === 'string' ? h : h.name || '')).filter(Boolean);
     post.timestamp = raw.createTime
       ? new Date(raw.createTime * 1000).toISOString()
       : raw.createdAt || new Date().toISOString();
     post.engagement = post.likes + post.comments + post.shares;
   } else if (platform === 'youtube') {
-    post.id = raw.id || raw.videoId || String(Math.random());
-    post.caption = raw.title || '';
+    post.id        = raw.id || raw.videoId || String(Math.random());
+    post.caption   = raw.title || '';
     post.thumbnail = raw.thumbnailUrl || raw.bestThumbnail?.url || '';
-    post.url = raw.url || raw.pageUrl || `https://www.youtube.com/watch?v=${raw.id}`;
-    post.likes = raw.likes || raw.likeCount || 0;
-    post.comments = raw.commentsCount || raw.commentCount || 0;
-    post.views = raw.viewCount || raw.views || 0;
-    post.type = raw.type === 'shorts' ? 'short' : 'video';
-    post.hashtags = Array.isArray(raw.hashtags) ? raw.hashtags : [];
+    post.url       = raw.url || raw.pageUrl || `https://www.youtube.com/watch?v=${raw.id}`;
+    post.likes     = raw.likes || raw.likeCount || 0;
+    post.comments  = raw.commentsCount || raw.commentCount || 0;
+    post.views     = raw.viewCount || raw.views || 0;
+    post.type      = raw.type === 'shorts' ? 'short' : 'video';
+    post.hashtags  = Array.isArray(raw.hashtags) ? raw.hashtags : [];
     post.timestamp = raw.date || raw.publishedAt || new Date().toISOString();
     post.engagement = post.likes + post.comments;
   }
@@ -170,23 +171,23 @@ function normalizePost(raw, platform) {
 }
 
 export async function scrapePlatform(platform, handle, apiToken, onProgress) {
-  onProgress?.('Starting actor…', 5);
+  onProgress?.('Iniciando actor…', 5);
 
   const runId = await startRun(platform, handle, apiToken);
-  onProgress?.('Actor running, polling…', 12);
+  onProgress?.('Actor en ejecución, verificando…', 12);
 
   const datasetId = await pollUntilSucceeded(runId, apiToken, (_status, attempt) => {
     const pct = Math.min(12 + (attempt / 120) * 75, 87);
-    onProgress?.(`Polling… (${attempt * 3}s)`, pct);
+    onProgress?.(`Verificando… (${attempt * 3}s)`, pct);
   });
 
-  onProgress?.('Downloading dataset…', 90);
+  onProgress?.('Descargando datos…', 90);
   const rawItems = await fetchDatasetItems(datasetId, apiToken);
 
-  onProgress?.('Normalizing data…', 97);
+  onProgress?.('Procesando datos…', 97);
   const normalized = rawItems.map(item => normalizePost(item, platform));
 
-  onProgress?.('Done', 100);
+  onProgress?.('Completado', 100);
   return normalized;
 }
 
@@ -194,13 +195,13 @@ export async function scrapeAllPlatforms(credentials, onProgress) {
   const { platforms, apifyToken } = credentials;
   const enabled = Object.entries(platforms).filter(([, p]) => p.enabled && p.handle?.trim());
 
-  if (enabled.length === 0) throw new Error('No platforms configured with handles');
+  if (enabled.length === 0) throw new Error('No hay plataformas configuradas con usuario');
 
   const allPosts = [];
 
   for (let i = 0; i < enabled.length; i++) {
     const [platform, config] = enabled[i];
-    const platformBase = i / enabled.length;
+    const platformBase  = i / enabled.length;
     const platformSlice = 1 / enabled.length;
 
     const posts = await scrapePlatform(

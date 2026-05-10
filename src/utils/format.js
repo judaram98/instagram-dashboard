@@ -1,33 +1,33 @@
 export function fmtNumber(n) {
   if (!n) return '0';
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
+  if (n >= 1_000)     return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
   return String(n);
 }
 
 export function fmtDate(ts) {
   if (!ts) return '';
-  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(ts).toLocaleDateString('es-MX', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export function fmtRelative(ts) {
   if (!ts) return '';
-  const diff = Date.now() - new Date(ts).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
+  const diff  = Date.now() - new Date(ts).getTime();
+  const mins  = Math.floor(diff / 60000);
+  if (mins < 60)  return `hace ${mins}m`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24)   return `hace ${hrs}h`;
   const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
+  if (days < 30)  return `hace ${days}d`;
   const months = Math.floor(days / 30);
-  return `${months}mo ago`;
+  return `hace ${months} mes${months !== 1 ? 'es' : ''}`;
 }
 
 export function getGreeting() {
   const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 18) return 'Good afternoon';
-  return 'Good evening';
+  if (h < 12) return 'Buenos días';
+  if (h < 19) return 'Buenas tardes';
+  return 'Buenas noches';
 }
 
 export function pctChange(current, previous) {
@@ -45,7 +45,7 @@ export function groupPostsByDay(posts) {
 }
 
 export function getWeeklyStats(posts, weeksBack = 8) {
-  const now = new Date();
+  const now   = new Date();
   const weeks = [];
 
   for (let i = weeksBack - 1; i >= 0; i--) {
@@ -59,12 +59,11 @@ export function getWeeklyStats(posts, weeksBack = 8) {
       return d >= start && d < end;
     });
 
-    const weekNum = weeksBack - i;
     weeks.push({
-      label: i === 0 ? 'This week' : i === 1 ? 'Last week' : `W-${i}`,
+      label:      i === 0 ? 'Esta semana' : i === 1 ? 'Sem. pasada' : `S-${i}`,
       engagement: slice.reduce((s, p) => s + p.engagement, 0),
-      views: slice.reduce((s, p) => s + (p.views || 0), 0),
-      posts: slice.length,
+      views:      slice.reduce((s, p) => s + (p.views || 0), 0),
+      posts:      slice.length,
     });
   }
 
@@ -83,7 +82,7 @@ export function getTopHashtags(posts, limit = 15) {
 }
 
 export function getEngagementByDay(posts) {
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const days   = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   const totals = Array(7).fill(0);
   const counts = Array(7).fill(0);
 
@@ -95,7 +94,7 @@ export function getEngagementByDay(posts) {
 
   return days.map((label, i) => ({
     label,
-    avg: counts[i] > 0 ? Math.round(totals[i] / counts[i]) : 0,
+    avg:   counts[i] > 0 ? Math.round(totals[i] / counts[i]) : 0,
     total: totals[i],
     count: counts[i],
   }));
