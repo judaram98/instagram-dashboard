@@ -76,6 +76,7 @@ async function fetchDatasetItems(datasetId) {
 function normalizePost(raw, platform) {
   const post = {
     id: '', platform, type: 'post', caption: '', thumbnail: '', url: '',
+    videoUrl: '', images: [],
     likes: 0, comments: 0, views: 0, shares: 0, saves: 0,
     engagement: 0, engagementRate: '0.00', hashtags: [],
     timestamp: new Date().toISOString(),
@@ -91,6 +92,12 @@ function normalizePost(raw, platform) {
     post.views     = raw.videoViewCount || raw.videoPlayCount || 0;
     post.saves     = raw.savesCount || 0;
     post.type      = raw.type === 'Video' ? 'video' : raw.type === 'Sidecar' ? 'carousel' : 'image';
+    post.videoUrl  = raw.type === 'Video' ? (raw.videoUrl || raw.videoSrc || '') : '';
+    post.images    = raw.type === 'Sidecar'
+      ? (raw.sidecarChildren || raw.childPosts || [])
+          .map(c => c.displayUrl || c.thumbnailUrl || '')
+          .filter(Boolean)
+      : [];
     post.hashtags  = Array.isArray(raw.hashtags) ? raw.hashtags : [];
     post.timestamp = raw.timestamp || raw.takenAt || new Date().toISOString();
     post.engagement = post.likes + post.comments + post.saves;
@@ -104,6 +111,7 @@ function normalizePost(raw, platform) {
     post.views     = raw.playCount || raw.viewCount || 0;
     post.shares    = raw.shareCount || 0;
     post.type      = 'video';
+    post.videoUrl  = raw.downloadAddr || raw.videoUrl || raw.videoMeta?.downloadAddr || '';
     post.hashtags  = (raw.hashtags || []).map(h => (typeof h === 'string' ? h : h.name || '')).filter(Boolean);
     post.timestamp = raw.createTime ? new Date(raw.createTime * 1000).toISOString() : raw.createdAt || new Date().toISOString();
     post.engagement = post.likes + post.comments + post.shares;

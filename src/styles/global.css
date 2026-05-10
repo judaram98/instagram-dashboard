@@ -232,19 +232,19 @@
     letter-spacing: -0.01em;
   }
   .badge-instagram {
-    background: rgba(168,85,247,0.10);
-    border: 1px solid rgba(168,85,247,0.20);
-    color: #7C3AED;
+    background: rgba(124,58,237,0.82);
+    border: 1px solid rgba(168,85,247,0.50);
+    color: #FFFFFF;
   }
   .badge-tiktok {
-    background: rgba(0,0,0,0.06);
-    border: 1px solid rgba(0,0,0,0.10);
-    color: #334752;
+    background: rgba(15,30,37,0.82);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #FFFFFF;
   }
   .badge-youtube {
-    background: rgba(220,38,38,0.08);
-    border: 1px solid rgba(220,38,38,0.18);
-    color: #DC2626;
+    background: rgba(185,28,28,0.82);
+    border: 1px solid rgba(220,38,38,0.40);
+    color: #FFFFFF;
   }
 
   .sidebar-wrap {
