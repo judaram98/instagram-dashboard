@@ -10,8 +10,10 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/node": "^8.3.4",
     "@astrojs/react": "^3.6.2",
     "@astrojs/tailwind": "^5.1.4",
+    "@supabase/supabase-js": "^2.105.4",
     "astro": "^4.16.18",
     "chart.js": "^4.4.7",
     "html2pdf.js": "^0.10.2",

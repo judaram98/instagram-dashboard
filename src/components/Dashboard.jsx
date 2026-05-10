@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AppProvider, useApp } from '../store/appStore';
-import SetupScreen from './SetupScreen';
+import LoginScreen from './LoginScreen';
 import Sidebar from './Sidebar';
 import HomeSection from './sections/HomeSection';
 import PostsSection from './sections/PostsSection';
@@ -21,6 +21,24 @@ const SECTIONS = {
   audience:    AudienceSection,
   settings:    SettingsSection,
 };
+
+function FullPageLoader() {
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-base-900">
+      <div className="flex flex-col items-center gap-4">
+        <div className="login-brand-mark w-12 h-12 rounded-2xl">
+          <svg className="w-5 h-5 text-accent-DEFAULT" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <circle cx="12" cy="12" r="9" />
+            <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none" />
+          </svg>
+        </div>
+        <svg className="w-5 h-5 animate-spin-slow text-accent-DEFAULT" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="20 40" />
+        </svg>
+      </div>
+    </div>
+  );
+}
 
 function LoadingOverlay({ message, progress }) {
   return (
@@ -99,9 +117,10 @@ function DashboardApp() {
     ].join('-');
     const found = (state.scheduledPosts || []).find(p => p.date === tomorrowStr);
     if (found) setTomorrowPost(found);
-  }, []);
+  }, [state.scheduledPosts]);
 
-  if (!state.isSetupComplete) return <SetupScreen />;
+  if (state.authLoading) return <FullPageLoader />;
+  if (!state.user) return <LoginScreen />;
 
   const ActiveSection = SECTIONS[state.activeSection] || HomeSection;
 

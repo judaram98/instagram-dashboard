@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../../store/appStore';
+import { supabase } from '../../lib/supabase';
 import { fmtRelative, fmtNumber } from '../../utils/format';
 
 const PLATFORM_META = {
@@ -8,15 +9,15 @@ const PLATFORM_META = {
   youtube:   { label: 'YouTube',   color: 'from-red-500 to-red-700' },
 };
 
-function maskKey(key) {
-  if (!key || key.length < 8) return '••••••••';
-  return key.slice(0, 6) + '••••••••••••' + key.slice(-4);
-}
-
 function Section({ title, children }) {
   return (
     <div className="card p-6">
-      <h2 className="font-display font-semibold text-base text-text-primary mb-5 pb-3 settings-section-border" style={{ letterSpacing: '-0.02em' }}>{title}</h2>
+      <h2
+        className="font-display font-semibold text-base text-text-primary mb-5 pb-3 settings-section-border"
+        style={{ letterSpacing: '-0.02em' }}
+      >
+        {title}
+      </h2>
       {children}
     </div>
   );
@@ -24,25 +25,50 @@ function Section({ title, children }) {
 
 export default function SettingsSection() {
   const { state, dispatch } = useApp();
-  const { credentials, posts, lastFetched } = state;
+  const { credentials, posts, lastFetched, user } = state;
 
   const [editPlatform, setEditPlatform] = useState(null);
   const [editHandle, setEditHandle]     = useState('');
   const [confirmReset, setConfirmReset] = useState(false);
   const [exportDone, setExportDone]     = useState(false);
+  const [signingOut, setSigningOut]     = useState(false);
 
   function handleEditSave(platform) {
-    dispatch({ type: 'UPDATE_CREDENTIALS', payload: { platforms: { ...credentials.platforms, [platform]: { ...credentials.platforms[platform], handle: editHandle.trim() } } } });
+    dispatch({
+      type: 'UPDATE_CREDENTIALS',
+      payload: {
+        platforms: {
+          ...credentials.platforms,
+          [platform]: { ...credentials.platforms[platform], handle: editHandle.trim() },
+        },
+      },
+    });
     setEditPlatform(null);
     setEditHandle('');
   }
 
   function handleDisconnect(platform) {
-    dispatch({ type: 'UPDATE_CREDENTIALS', payload: { platforms: { ...credentials.platforms, [platform]: { enabled: false, handle: '' } } } });
+    dispatch({
+      type: 'UPDATE_CREDENTIALS',
+      payload: {
+        platforms: {
+          ...credentials.platforms,
+          [platform]: { enabled: false, handle: '' },
+        },
+      },
+    });
   }
 
   function handleConnect(platform) {
-    dispatch({ type: 'UPDATE_CREDENTIALS', payload: { platforms: { ...credentials.platforms, [platform]: { enabled: true, handle: '' } } } });
+    dispatch({
+      type: 'UPDATE_CREDENTIALS',
+      payload: {
+        platforms: {
+          ...credentials.platforms,
+          [platform]: { enabled: true, handle: '' },
+        },
+      },
+    });
     setEditPlatform(platform);
     setEditHandle('');
   }
@@ -63,7 +89,7 @@ export default function SettingsSection() {
     try {
       const html2pdf = (await import('html2pdf.js')).default;
       const el = document.createElement('div');
-      el.style.padding = '24px';
+      el.style.padding    = '24px';
       el.style.fontFamily = 'sans-serif';
       el.innerHTML = `
         <h1 style="color:#098058;margin-bottom:8px">Creator Pulse — Exportación de datos</h1>
@@ -78,12 +104,12 @@ export default function SettingsSection() {
             <th style="padding:8px;border:1px solid #D1D5DB">Fecha</th>
           </tr></thead>
           <tbody>${posts.map((p, i) => `
-            <tr style="background:${i%2===0?'#fff':'#F9FAFB'}">
+            <tr style="background:${i % 2 === 0 ? '#fff' : '#F9FAFB'}">
               <td style="padding:7px 8px;border:1px solid #D1D5DB">${p.platform}</td>
               <td style="padding:7px 8px;border:1px solid #D1D5DB">${p.type}</td>
-              <td style="padding:7px 8px;border:1px solid #D1D5DB">${(p.caption||'').slice(0,80)}</td>
+              <td style="padding:7px 8px;border:1px solid #D1D5DB">${(p.caption || '').slice(0, 80)}</td>
               <td style="padding:7px 8px;border:1px solid #D1D5DB">${p.engagement.toLocaleString('es-MX')}</td>
-              <td style="padding:7px 8px;border:1px solid #D1D5DB">${(p.views||0).toLocaleString('es-MX')}</td>
+              <td style="padding:7px 8px;border:1px solid #D1D5DB">${(p.views || 0).toLocaleString('es-MX')}</td>
               <td style="padding:7px 8px;border:1px solid #D1D5DB">${new Date(p.timestamp).toLocaleDateString('es-MX')}</td>
             </tr>
           `).join('')}</tbody>
@@ -102,17 +128,36 @@ export default function SettingsSection() {
     }
   }
 
+  async function handleSignOut() {
+    setSigningOut(true);
+    await supabase.auth.signOut();
+    dispatch({ type: 'CLEAR_AUTH' });
+    setSigningOut(false);
+  }
+
   return (
     <div className="space-y-6 animate-fade-in max-w-2xl">
       <div>
         <h1 className="section-title">Ajustes</h1>
-        <p className="text-text-secondary mt-2 text-sm">Gestiona tus conexiones, claves y datos</p>
+        <p className="text-text-secondary mt-2 text-sm">Gestiona tus conexiones y datos</p>
       </div>
+
+      <Section title="Cuenta">
+        <div className="settings-row">
+          <div>
+            <p className="font-medium text-text-primary text-sm">Email</p>
+            <p className="text-text-muted text-xs mt-0.5 font-mono">{user?.email || '—'}</p>
+          </div>
+          <button onClick={handleSignOut} disabled={signingOut} className="btn-secondary text-xs py-1.5 px-4">
+            {signingOut ? 'Saliendo…' : 'Cerrar sesión'}
+          </button>
+        </div>
+      </Section>
 
       <Section title="Plataformas conectadas">
         <div className="space-y-2">
           {Object.entries(PLATFORM_META).map(([platform, meta]) => {
-            const config    = credentials.platforms[platform];
+            const config    = credentials.platforms[platform] ?? { enabled: false, handle: '' };
             const isEditing = editPlatform === platform;
             return (
               <div key={platform} className={`platform-row ${config.enabled ? 'platform-row-active' : ''}`}>
@@ -131,13 +176,20 @@ export default function SettingsSection() {
                   <div className="flex items-center gap-2">
                     {config.enabled ? (
                       <>
-                        <button onClick={() => { setEditPlatform(isEditing ? null : platform); setEditHandle(config.handle); }} className="btn-ghost text-xs py-1.5 px-3">
+                        <button
+                          onClick={() => { setEditPlatform(isEditing ? null : platform); setEditHandle(config.handle); }}
+                          className="btn-ghost text-xs py-1.5 px-3"
+                        >
                           {isEditing ? 'Cancelar' : 'Editar'}
                         </button>
-                        <button onClick={() => handleDisconnect(platform)} className="btn-danger text-xs py-1.5 px-3">Desconectar</button>
+                        <button onClick={() => handleDisconnect(platform)} className="btn-danger text-xs py-1.5 px-3">
+                          Desconectar
+                        </button>
                       </>
                     ) : (
-                      <button onClick={() => handleConnect(platform)} className="btn-secondary text-xs py-1.5 px-3">Conectar</button>
+                      <button onClick={() => handleConnect(platform)} className="btn-secondary text-xs py-1.5 px-3">
+                        Conectar
+                      </button>
                     )}
                   </div>
                 </div>
@@ -145,9 +197,15 @@ export default function SettingsSection() {
                   <div className="px-4 pb-4 flex gap-2">
                     <div className="relative flex-1">
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted text-sm">@</span>
-                      <input type="text" className="input-field pl-8" placeholder="usuario" value={editHandle}
+                      <input
+                        type="text"
+                        className="input-field pl-8"
+                        placeholder="usuario"
+                        value={editHandle}
                         onChange={e => setEditHandle(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleEditSave(platform)} autoFocus />
+                        onKeyDown={e => e.key === 'Enter' && handleEditSave(platform)}
+                        autoFocus
+                      />
                     </div>
                     <button onClick={() => handleEditSave(platform)} className="btn-primary px-4">Guardar</button>
                   </div>
@@ -155,29 +213,6 @@ export default function SettingsSection() {
               </div>
             );
           })}
-        </div>
-      </Section>
-
-      <Section title="Claves API">
-        <div className="space-y-2">
-          <div className="settings-row">
-            <div>
-              <p className="font-medium text-text-primary text-sm">Token de Apify</p>
-              <p className="text-text-muted text-xs font-mono mt-0.5">{maskKey(credentials.apifyToken)}</p>
-            </div>
-            <button onClick={() => { dispatch({ type: 'UPDATE_CREDENTIALS', payload: { apifyToken: '' } }); dispatch({ type: 'RESET' }); }} className="btn-danger text-xs py-1.5 px-3">
-              Limpiar y reiniciar
-            </button>
-          </div>
-          <div className="settings-row">
-            <div>
-              <p className="font-medium text-text-primary text-sm">Clave de OpenAI</p>
-              <p className="text-text-muted text-xs font-mono mt-0.5">{maskKey(credentials.openaiKey)}</p>
-            </div>
-            <button onClick={() => { dispatch({ type: 'UPDATE_CREDENTIALS', payload: { openaiKey: '' } }); dispatch({ type: 'RESET' }); }} className="btn-danger text-xs py-1.5 px-3">
-              Limpiar y reiniciar
-            </button>
-          </div>
         </div>
       </Section>
 
@@ -190,7 +225,11 @@ export default function SettingsSection() {
                 {posts.length} publicaciones almacenadas{lastFetched ? ` · última sincronización ${fmtRelative(lastFetched)}` : ''}
               </p>
             </div>
-            <button onClick={() => dispatch({ type: 'SET_POSTS', payload: [] })} disabled={posts.length === 0} className="btn-ghost text-xs py-1.5 px-3">
+            <button
+              onClick={() => dispatch({ type: 'SET_POSTS', payload: [] })}
+              disabled={posts.length === 0}
+              className="btn-ghost text-xs py-1.5 px-3"
+            >
               Limpiar caché
             </button>
           </div>
@@ -203,7 +242,9 @@ export default function SettingsSection() {
               <button onClick={handleExportJSON} disabled={posts.length === 0} className="btn-secondary text-xs py-1.5 px-3">
                 {exportDone ? '✓ Exportado!' : 'JSON'}
               </button>
-              <button onClick={handleExportPDF} disabled={posts.length === 0} className="btn-secondary text-xs py-1.5 px-3">PDF</button>
+              <button onClick={handleExportPDF} disabled={posts.length === 0} className="btn-secondary text-xs py-1.5 px-3">
+                PDF
+              </button>
             </div>
           </div>
         </div>
@@ -211,14 +252,16 @@ export default function SettingsSection() {
 
       <Section title="Zona de peligro">
         <div className="danger-zone">
-          <p className="font-semibold text-red-600 text-sm mb-1">Reiniciar todo</p>
-          <p className="text-red-500 text-xs mb-4">Esto eliminará todas las credenciales guardadas, publicaciones y ajustes. Esta acción no se puede deshacer.</p>
+          <p className="font-semibold text-red-600 text-sm mb-1">Eliminar datos locales</p>
+          <p className="text-red-500 text-xs mb-4">Elimina publicaciones en caché y posts programados de tu cuenta. Esta acción no se puede deshacer.</p>
           {!confirmReset ? (
-            <button onClick={() => setConfirmReset(true)} className="btn-danger text-sm">Reiniciar panel</button>
+            <button onClick={() => setConfirmReset(true)} className="btn-danger text-sm">Limpiar todo</button>
           ) : (
             <div className="flex items-center gap-3">
-              <p className="text-red-600 text-sm font-medium">¿Estás absolutamente seguro?</p>
-              <button onClick={() => dispatch({ type: 'RESET' })} className="btn-danger text-sm">Sí, reiniciar</button>
+              <p className="text-red-600 text-sm font-medium">¿Estás seguro?</p>
+              <button onClick={() => { dispatch({ type: 'RESET' }); setConfirmReset(false); }} className="btn-danger text-sm">
+                Sí, limpiar
+              </button>
               <button onClick={() => setConfirmReset(false)} className="btn-ghost text-sm">Cancelar</button>
             </div>
           )}
@@ -226,7 +269,7 @@ export default function SettingsSection() {
       </Section>
 
       <div className="text-center py-2">
-        <p className="text-xs text-text-muted">Creator Pulse · Todos los datos se almacenan localmente · Sin servidor</p>
+        <p className="text-xs text-text-muted">Creator Pulse · Datos sincronizados con Supabase</p>
       </div>
     </div>
   );

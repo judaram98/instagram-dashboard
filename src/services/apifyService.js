@@ -1,5 +1,3 @@
-const APIFY_BASE = 'https://api.apify.com/v2';
-
 const ACTORS = {
   instagram: 'apify/instagram-scraper',
   tiktok:    'clockworks/free-tiktok-scraper',
@@ -7,75 +5,55 @@ const ACTORS = {
 };
 
 function buildInput(platform, handle) {
-  const cleanHandle = handle.replace(/^@/, '');
+  const h = handle.replace(/^@/, '');
   switch (platform) {
     case 'instagram':
-      return {
-        directUrls:   [`https://www.instagram.com/${cleanHandle}/`],
-        resultsType:  'posts',
-        resultsLimit: 50,
-        addParentData: false,
-      };
+      return { directUrls: [`https://www.instagram.com/${h}/`], resultsType: 'posts', resultsLimit: 50, addParentData: false };
     case 'tiktok':
-      return {
-        profiles:             [`https://www.tiktok.com/@${cleanHandle}`],
-        resultsPerPage:       50,
-        shouldDownloadVideos: false,
-        shouldDownloadCovers: false,
-      };
+      return { profiles: [`https://www.tiktok.com/@${h}`], resultsPerPage: 50, shouldDownloadVideos: false, shouldDownloadCovers: false };
     case 'youtube':
-      return {
-        startUrls:         [{ url: `https://www.youtube.com/@${cleanHandle}` }],
-        maxResults:        50,
-        downloadSubtitles: false,
-      };
+      return { startUrls: [{ url: `https://www.youtube.com/@${h}` }], maxResults: 50, downloadSubtitles: false };
     default:
       throw new Error(`Plataforma desconocida: ${platform}`);
   }
 }
 
-async function startRun(platform, handle, apiToken) {
-  const actor = encodeURIComponent(ACTORS[platform]);
-  const input = buildInput(platform, handle);
-
-  const res = await fetch(`${APIFY_BASE}/acts/${actor}/runs?token=${apiToken}`, {
+async function apify(endpoint, method = 'GET', body = null) {
+  const res = await fetch('/api/proxy-apify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
+    body: JSON.stringify({ endpoint, method, body }),
   });
-
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error?.message || `Error al iniciar actor de ${platform} (HTTP ${res.status})`);
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Error proxy Apify (HTTP ${res.status})`);
   }
+  return res.json();
+}
 
-  const data = await res.json();
+async function startRun(platform, handle) {
+  const actor = encodeURIComponent(ACTORS[platform]);
+  const data  = await apify(`acts/${actor}/runs`, 'POST', buildInput(platform, handle));
+  if (!data?.data?.id) throw new Error(`Error al iniciar actor de ${platform}`);
   return data.data.id;
 }
 
-function pollUntilSucceeded(runId, apiToken, onTick) {
+function pollUntilSucceeded(runId, onTick) {
   return new Promise((resolve, reject) => {
-    let attempts    = 0;
+    let attempts       = 0;
     const MAX_ATTEMPTS = 120;
 
     const interval = setInterval(async () => {
       attempts++;
-
       if (attempts > MAX_ATTEMPTS) {
         clearInterval(interval);
         reject(new Error('El scraping expiró después de 6 minutos'));
         return;
       }
-
       try {
-        const res = await fetch(`${APIFY_BASE}/actor-runs/${runId}?token=${apiToken}`);
-        if (!res.ok) return;
-
-        const { data } = await res.json();
+        const { data } = await apify(`actor-runs/${runId}`, 'GET');
         const { status, defaultDatasetId } = data;
-
         onTick?.(status, attempts);
-
         if (status === 'SUCCEEDED') {
           clearInterval(interval);
           resolve(defaultDatasetId);
@@ -85,40 +63,22 @@ function pollUntilSucceeded(runId, apiToken, onTick) {
           reject(new Error(`El proceso de Apify ${STATUS_ES[status] || status.toLowerCase()}`));
         }
       } catch (err) {
-        if (attempts >= MAX_ATTEMPTS) {
-          clearInterval(interval);
-          reject(err);
-        }
+        if (attempts >= MAX_ATTEMPTS) { clearInterval(interval); reject(err); }
       }
     }, 3000);
   });
 }
 
-async function fetchDatasetItems(datasetId, apiToken) {
-  const res = await fetch(
-    `${APIFY_BASE}/datasets/${datasetId}/items?token=${apiToken}&clean=1&format=json`
-  );
-  if (!res.ok) throw new Error('Error al descargar los datos del dataset');
-  return res.json();
+async function fetchDatasetItems(datasetId) {
+  return apify(`datasets/${datasetId}/items?clean=1&format=json`, 'GET');
 }
 
 function normalizePost(raw, platform) {
   const post = {
-    id:              '',
-    platform,
-    type:            'post',
-    caption:         '',
-    thumbnail:       '',
-    url:             '',
-    likes:           0,
-    comments:        0,
-    views:           0,
-    shares:          0,
-    saves:           0,
-    engagement:      0,
-    engagementRate:  '0.00',
-    hashtags:        [],
-    timestamp:       new Date().toISOString(),
+    id: '', platform, type: 'post', caption: '', thumbnail: '', url: '',
+    likes: 0, comments: 0, views: 0, shares: 0, saves: 0,
+    engagement: 0, engagementRate: '0.00', hashtags: [],
+    timestamp: new Date().toISOString(),
   };
 
   if (platform === 'instagram') {
@@ -145,9 +105,7 @@ function normalizePost(raw, platform) {
     post.shares    = raw.shareCount || 0;
     post.type      = 'video';
     post.hashtags  = (raw.hashtags || []).map(h => (typeof h === 'string' ? h : h.name || '')).filter(Boolean);
-    post.timestamp = raw.createTime
-      ? new Date(raw.createTime * 1000).toISOString()
-      : raw.createdAt || new Date().toISOString();
+    post.timestamp = raw.createTime ? new Date(raw.createTime * 1000).toISOString() : raw.createdAt || new Date().toISOString();
     post.engagement = post.likes + post.comments + post.shares;
   } else if (platform === 'youtube') {
     post.id        = raw.id || raw.videoId || String(Math.random());
@@ -163,26 +121,22 @@ function normalizePost(raw, platform) {
     post.engagement = post.likes + post.comments;
   }
 
-  post.engagementRate = post.views > 0
-    ? ((post.engagement / post.views) * 100).toFixed(2)
-    : '0.00';
-
+  post.engagementRate = post.views > 0 ? ((post.engagement / post.views) * 100).toFixed(2) : '0.00';
   return post;
 }
 
-export async function scrapePlatform(platform, handle, apiToken, onProgress) {
+export async function scrapePlatform(platform, handle, _token, onProgress) {
   onProgress?.('Iniciando actor…', 5);
-
-  const runId = await startRun(platform, handle, apiToken);
+  const runId = await startRun(platform, handle);
   onProgress?.('Actor en ejecución, verificando…', 12);
 
-  const datasetId = await pollUntilSucceeded(runId, apiToken, (_status, attempt) => {
+  const datasetId = await pollUntilSucceeded(runId, (_status, attempt) => {
     const pct = Math.min(12 + (attempt / 120) * 75, 87);
     onProgress?.(`Verificando… (${attempt * 3}s)`, pct);
   });
 
   onProgress?.('Descargando datos…', 90);
-  const rawItems = await fetchDatasetItems(datasetId, apiToken);
+  const rawItems = await fetchDatasetItems(datasetId);
 
   onProgress?.('Procesando datos…', 97);
   const normalized = rawItems.map(item => normalizePost(item, platform));
@@ -192,8 +146,8 @@ export async function scrapePlatform(platform, handle, apiToken, onProgress) {
 }
 
 export async function scrapeAllPlatforms(credentials, onProgress) {
-  const { platforms, apifyToken } = credentials;
-  const enabled = Object.entries(platforms).filter(([, p]) => p.enabled && p.handle?.trim());
+  const { platforms } = credentials;
+  const enabled = Object.entries(platforms || {}).filter(([, p]) => p.enabled && p.handle?.trim());
 
   if (enabled.length === 0) throw new Error('No hay plataformas configuradas con usuario');
 
@@ -207,7 +161,7 @@ export async function scrapeAllPlatforms(credentials, onProgress) {
     const posts = await scrapePlatform(
       platform,
       config.handle.trim(),
-      apifyToken,
+      null,
       (msg, pct) => {
         const overall = (platformBase + (pct / 100) * platformSlice) * 100;
         onProgress?.(platform, msg, Math.round(overall));

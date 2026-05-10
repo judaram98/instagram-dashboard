@@ -1,12 +1,10 @@
-import { createContext, useContext, useReducer } from 'react';
-
-const STORAGE_KEY = 'creator_pulse_v1';
+import { createContext, useContext, useReducer, useEffect, useRef } from 'react';
+import { supabase } from '../lib/supabase';
 
 const initialState = {
-  isSetupComplete: false,
+  user:        null,
+  authLoading: true,
   credentials: {
-    apifyToken: '',
-    openaiKey: '',
     platforms: {
       instagram: { enabled: false, handle: '' },
       tiktok:    { enabled: false, handle: '' },
@@ -23,55 +21,37 @@ const initialState = {
   lastFetched:    null,
 };
 
-function persist(state) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      isSetupComplete: state.isSetupComplete,
-      credentials:     state.credentials,
-      posts:           state.posts,
-      scheduledPosts:  state.scheduledPosts,
-      lastFetched:     state.lastFetched,
-    }));
-  } catch (_) {}
-}
-
-function loadFromStorage() {
-  if (typeof window === 'undefined') return initialState;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return initialState;
-    const saved = JSON.parse(raw);
-    return {
-      ...initialState,
-      isSetupComplete: Boolean(saved.isSetupComplete),
-      credentials: {
-        ...initialState.credentials,
-        ...saved.credentials,
-        platforms: {
-          ...initialState.credentials.platforms,
-          ...(saved.credentials?.platforms || {}),
-        },
-      },
-      posts:          Array.isArray(saved.posts) ? saved.posts : [],
-      scheduledPosts: Array.isArray(saved.scheduledPosts) ? saved.scheduledPosts : [],
-      lastFetched:    saved.lastFetched || null,
-    };
-  } catch (_) {
-    return initialState;
-  }
-}
-
 function reducer(state, action) {
-  let next;
   switch (action.type) {
-    case 'SETUP_COMPLETE':
-      next = { ...state, isSetupComplete: true, credentials: action.payload };
-      persist(next);
-      return next;
+    case 'SET_AUTH':
+      return { ...state, user: action.payload, authLoading: false };
+
+    case 'CLEAR_AUTH':
+      return {
+        ...initialState,
+        authLoading: false,
+        user: null,
+      };
+
+    case 'AUTH_LOADED':
+      return { ...state, authLoading: false };
+
+    case 'LOAD_USER_DATA':
+      return {
+        ...state,
+        credentials: {
+          platforms: {
+            ...initialState.credentials.platforms,
+            ...(action.payload.platforms || {}),
+          },
+        },
+        posts:          action.payload.posts          || [],
+        scheduledPosts: action.payload.scheduledPosts || [],
+        lastFetched:    action.payload.lastFetched    || null,
+      };
 
     case 'SET_POSTS':
-      next = {
+      return {
         ...state,
         posts:           action.payload,
         lastFetched:     new Date().toISOString(),
@@ -79,17 +59,9 @@ function reducer(state, action) {
         loadingProgress: 0,
         loadingMessage:  '',
       };
-      persist(next);
-      return next;
 
     case 'SET_LOADING':
-      return {
-        ...state,
-        isLoading:       action.loading,
-        loadingMessage:  action.message  || '',
-        loadingProgress: action.progress || 0,
-        error:           null,
-      };
+      return { ...state, isLoading: action.loading, loadingMessage: action.message || '', loadingProgress: action.progress || 0, error: null };
 
     case 'SET_ERROR':
       return { ...state, error: action.payload, isLoading: false, loadingProgress: 0, loadingMessage: '' };
@@ -100,36 +72,107 @@ function reducer(state, action) {
     case 'SET_SECTION':
       return { ...state, activeSection: action.payload };
 
-    case 'UPDATE_CREDENTIALS':
-      next = { ...state, credentials: { ...state.credentials, ...action.payload } };
-      persist(next);
-      return next;
+    case 'UPDATE_CREDENTIALS': {
+      const updated = { ...state.credentials, ...action.payload };
+      return { ...state, credentials: updated };
+    }
 
     case 'ADD_SCHEDULED_POST': {
       const filtered = state.scheduledPosts.filter(p => p.id !== action.payload.id);
-      next = { ...state, scheduledPosts: [...filtered, action.payload] };
-      persist(next);
-      return next;
+      return { ...state, scheduledPosts: [...filtered, action.payload] };
     }
 
     case 'REMOVE_SCHEDULED_POST':
-      next = { ...state, scheduledPosts: state.scheduledPosts.filter(p => p.id !== action.payload) };
-      persist(next);
-      return next;
+      return { ...state, scheduledPosts: state.scheduledPosts.filter(p => p.id !== action.payload) };
 
     case 'RESET':
-      if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEY);
-      return { ...initialState };
+      return { ...initialState, authLoading: false };
 
     default:
       return state;
   }
 }
 
+async function loadUserData(userId, dispatch) {
+  try {
+    const [{ data: ud }, { data: cp }] = await Promise.all([
+      supabase.from('user_data').select('*').eq('user_id', userId).maybeSingle(),
+      supabase.from('cached_posts').select('*').eq('user_id', userId).maybeSingle(),
+    ]);
+    dispatch({
+      type:    'LOAD_USER_DATA',
+      payload: {
+        platforms:      ud?.platforms       || {},
+        scheduledPosts: ud?.scheduled_posts || [],
+        posts:          cp?.posts           || [],
+        lastFetched:    cp?.last_fetched    || null,
+      },
+    });
+  } catch {
+    dispatch({ type: 'LOAD_USER_DATA', payload: {} });
+  }
+}
+
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, null, loadFromStorage);
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const stateRef          = useRef(state);
+
+  useEffect(() => { stateRef.current = state; }, [state]);
+
+  useEffect(() => {
+    let subscription;
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        dispatch({ type: 'SET_AUTH', payload: session.user });
+        loadUserData(session.user.id, dispatch);
+      } else {
+        dispatch({ type: 'AUTH_LOADED' });
+      }
+    });
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        dispatch({ type: 'SET_AUTH', payload: session.user });
+        loadUserData(session.user.id, dispatch);
+      } else if (event === 'SIGNED_OUT') {
+        dispatch({ type: 'CLEAR_AUTH' });
+      }
+    });
+    subscription = data.subscription;
+
+    return () => subscription?.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const userId = state.user?.id;
+    if (!userId) return;
+    supabase.from('user_data').upsert(
+      { user_id: userId, platforms: state.credentials.platforms, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    ).then();
+  }, [state.credentials.platforms, state.user?.id]);
+
+  useEffect(() => {
+    const userId = state.user?.id;
+    if (!userId) return;
+    supabase.from('user_data').upsert(
+      { user_id: userId, scheduled_posts: state.scheduledPosts, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    ).then();
+  }, [state.scheduledPosts, state.user?.id]);
+
+  useEffect(() => {
+    const userId = state.user?.id;
+    if (!userId || !state.lastFetched) return;
+    supabase.from('cached_posts').upsert(
+      { user_id: userId, posts: state.posts, last_fetched: state.lastFetched, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    ).then();
+  }, [state.posts, state.user?.id]);
+
   return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>;
 }
 
