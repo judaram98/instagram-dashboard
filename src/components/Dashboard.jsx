@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { AppProvider, useApp } from '../store/appStore';
 import SetupScreen from './SetupScreen';
 import Sidebar from './Sidebar';
@@ -7,12 +8,16 @@ import ConsistencySection from './sections/ConsistencySection';
 import AIIdeasSection from './sections/AIIdeasSection';
 import AudienceSection from './sections/AudienceSection';
 import SettingsSection from './sections/SettingsSection';
+import ViralLabSection from './sections/ViralLabSection';
+import CalendarSection from './sections/CalendarSection';
 
 const SECTIONS = {
   home:        HomeSection,
   posts:       PostsSection,
   consistency: ConsistencySection,
   ideas:       AIIdeasSection,
+  virallab:    ViralLabSection,
+  calendar:    CalendarSection,
   audience:    AudienceSection,
   settings:    SettingsSection,
 };
@@ -56,8 +61,45 @@ function ErrorToast({ message, onDismiss }) {
   );
 }
 
+function InfoToast({ post, onDismiss }) {
+  return (
+    <div className="fixed bottom-6 left-6 z-50 card p-4 max-w-sm animate-slide-up info-toast flex items-start gap-3">
+      <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 empty-icon-wrap">
+        <svg className="w-4 h-4 text-accent-DEFAULT" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+        </svg>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold text-text-primary text-sm">¡Contenido para mañana!</p>
+        <p className="text-text-secondary text-sm mt-0.5 break-words">Toca preparar: «{post.title}»</p>
+      </div>
+      <button onClick={onDismiss} className="text-text-faint hover:text-text-muted transition-colors flex-shrink-0">
+        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 function DashboardApp() {
   const { state, dispatch } = useApp();
+  const [tomorrowPost, setTomorrowPost] = useState(null);
+
+  useEffect(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = [
+      tomorrow.getFullYear(),
+      String(tomorrow.getMonth() + 1).padStart(2, '0'),
+      String(tomorrow.getDate()).padStart(2, '0'),
+    ].join('-');
+    const found = (state.scheduledPosts || []).find(p => p.date === tomorrowStr);
+    if (found) setTomorrowPost(found);
+  }, []);
 
   if (!state.isSetupComplete) return <SetupScreen />;
 
@@ -77,6 +119,9 @@ function DashboardApp() {
       )}
       {state.error && (
         <ErrorToast message={state.error} onDismiss={() => dispatch({ type: 'CLEAR_ERROR' })} />
+      )}
+      {tomorrowPost && (
+        <InfoToast post={tomorrowPost} onDismiss={() => setTomorrowPost(null)} />
       )}
     </div>
   );

@@ -9,17 +9,18 @@ const initialState = {
     openaiKey: '',
     platforms: {
       instagram: { enabled: false, handle: '' },
-      tiktok: { enabled: false, handle: '' },
-      youtube: { enabled: false, handle: '' },
+      tiktok:    { enabled: false, handle: '' },
+      youtube:   { enabled: false, handle: '' },
     },
   },
-  posts: [],
-  isLoading: false,
+  posts:          [],
+  scheduledPosts: [],
+  isLoading:      false,
   loadingMessage: '',
   loadingProgress: 0,
-  error: null,
-  activeSection: 'home',
-  lastFetched: null,
+  error:          null,
+  activeSection:  'home',
+  lastFetched:    null,
 };
 
 function persist(state) {
@@ -27,9 +28,10 @@ function persist(state) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       isSetupComplete: state.isSetupComplete,
-      credentials: state.credentials,
-      posts: state.posts,
-      lastFetched: state.lastFetched,
+      credentials:     state.credentials,
+      posts:           state.posts,
+      scheduledPosts:  state.scheduledPosts,
+      lastFetched:     state.lastFetched,
     }));
   } catch (_) {}
 }
@@ -51,8 +53,9 @@ function loadFromStorage() {
           ...(saved.credentials?.platforms || {}),
         },
       },
-      posts: Array.isArray(saved.posts) ? saved.posts : [],
-      lastFetched: saved.lastFetched || null,
+      posts:          Array.isArray(saved.posts) ? saved.posts : [],
+      scheduledPosts: Array.isArray(saved.scheduledPosts) ? saved.scheduledPosts : [],
+      lastFetched:    saved.lastFetched || null,
     };
   } catch (_) {
     return initialState;
@@ -68,12 +71,25 @@ function reducer(state, action) {
       return next;
 
     case 'SET_POSTS':
-      next = { ...state, posts: action.payload, lastFetched: new Date().toISOString(), isLoading: false, loadingProgress: 0, loadingMessage: '' };
+      next = {
+        ...state,
+        posts:           action.payload,
+        lastFetched:     new Date().toISOString(),
+        isLoading:       false,
+        loadingProgress: 0,
+        loadingMessage:  '',
+      };
       persist(next);
       return next;
 
     case 'SET_LOADING':
-      return { ...state, isLoading: action.loading, loadingMessage: action.message || '', loadingProgress: action.progress || 0, error: null };
+      return {
+        ...state,
+        isLoading:       action.loading,
+        loadingMessage:  action.message  || '',
+        loadingProgress: action.progress || 0,
+        error:           null,
+      };
 
     case 'SET_ERROR':
       return { ...state, error: action.payload, isLoading: false, loadingProgress: 0, loadingMessage: '' };
@@ -86,6 +102,18 @@ function reducer(state, action) {
 
     case 'UPDATE_CREDENTIALS':
       next = { ...state, credentials: { ...state.credentials, ...action.payload } };
+      persist(next);
+      return next;
+
+    case 'ADD_SCHEDULED_POST': {
+      const filtered = state.scheduledPosts.filter(p => p.id !== action.payload.id);
+      next = { ...state, scheduledPosts: [...filtered, action.payload] };
+      persist(next);
+      return next;
+    }
+
+    case 'REMOVE_SCHEDULED_POST':
+      next = { ...state, scheduledPosts: state.scheduledPosts.filter(p => p.id !== action.payload) };
       persist(next);
       return next;
 

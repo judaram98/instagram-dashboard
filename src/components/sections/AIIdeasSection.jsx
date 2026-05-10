@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../../store/appStore';
-import { generateContentIdeas, sendChatMessage } from '../../services/openaiService';
+import { generateContentIdeasStructured, sendChatMessage } from '../../services/openaiService';
 
-const PLATFORMS = ['Cualquiera', 'instagram', 'tiktok', 'youtube'];
+const PLATFORMS    = ['Cualquiera', 'instagram', 'tiktok', 'youtube'];
 const CONTENT_TYPES = ['Cualquiera', 'Video corto', 'Carrusel', 'Tutorial', 'Detrás de cámaras', 'Tendencia', 'Educativo', 'Entretenimiento'];
-const TONES = ['Auténtico y cercano', 'Divertido y relatable', 'Inspiracional', 'Educativo', 'Atrevido', 'Estético y tranquilo'];
+const TONES        = ['Auténtico y cercano', 'Divertido y relatable', 'Inspiracional', 'Educativo', 'Atrevido', 'Estético y tranquilo'];
+const SCHEDULE_TYPES = ['reel', 'carousel', 'story', 'post'];
 
 function SparkleIcon() {
   return (
@@ -23,47 +24,169 @@ function SendIcon() {
   );
 }
 
-function FormattedOutput({ text }) {
-  if (!text) return null;
+function ViralityMeter({ score }) {
+  const barCls   = score >= 80 ? 'virality-bar-high' : score >= 50 ? 'virality-bar-mid' : 'virality-bar-low';
+  const badgeCls = score >= 80 ? 'virality-badge-high' : score >= 50 ? 'virality-badge-mid' : 'virality-badge-low';
   return (
-    <div className="ai-output">
-      {text.split('\n').map((line, i) => {
-        if (line.startsWith('🎯') || line.startsWith('📝') || line.startsWith('🏷') || line.startsWith('💡'))
-          return <p key={i} className={`${i === 0 ? '' : 'mt-2'} ${line.startsWith('🎯') ? 'font-semibold text-text-primary' : 'text-text-secondary'}`}>{line}</p>;
-        if (line.startsWith('---')) return <hr key={i} className="my-4 border-base-800" />;
-        if (line.trim() === '') return <div key={i} className="h-2" />;
-        return <p key={i}>{line}</p>;
-      })}
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="label">Predicción de viralidad</span>
+        <span className={`virality-score-badge ${badgeCls}`}>{score}</span>
+      </div>
+      <div className="virality-bar">
+        <div className={`virality-bar-fill ${barCls}`} style={{ '--virality-w': `${score}%` }} />
+      </div>
+      <p className="text-xs text-text-muted italic leading-snug" />
+    </div>
+  );
+}
+
+function ScheduleModal({ idea, onClose, onConfirm }) {
+  const [date, setDate]               = useState('');
+  const [contentType, setContentType] = useState(idea.contentType || 'reel');
+
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const minDate = tomorrow.toISOString().split('T')[0];
+
+  function handleConfirm() {
+    if (!date) return;
+    onConfirm({ date, contentType });
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-panel">
+        <div className="modal-header mb-4">
+          <h3 className="font-display font-semibold text-text-primary text-base">Agendar en Calendario</h3>
+          <button onClick={onClose} className="btn-ghost p-2">
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="analysis-block mb-4">
+          <p className="text-sm font-semibold text-text-primary line-clamp-2">{idea.title}</p>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="label block mb-1.5">Tipo de contenido</label>
+            <select className="input-field py-2.5" value={contentType} onChange={e => setContentType(e.target.value)}>
+              {SCHEDULE_TYPES.map(t => (
+                <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label block mb-1.5">Fecha de publicación</label>
+            <input
+              type="date"
+              className="input-field py-2.5"
+              min={minDate}
+              value={date}
+              onChange={e => setDate(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button onClick={onClose} className="btn-secondary flex-1">Cancelar</button>
+            <button onClick={handleConfirm} disabled={!date} className="btn-primary flex-1">
+              📅 Agendar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function IdeaCard({ idea, onSchedule }) {
+  const score    = idea.viralityScore || 0;
+  const badgeCls = score >= 80 ? 'virality-badge-high' : score >= 50 ? 'virality-badge-mid' : 'virality-badge-low';
+  const barCls   = score >= 80 ? 'virality-bar-high'   : score >= 50 ? 'virality-bar-mid'   : 'virality-bar-low';
+
+  return (
+    <div className="idea-card">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-text-primary text-sm leading-snug">🎯 {idea.title}</p>
+          <p className="text-xs text-text-muted uppercase tracking-wider font-semibold mt-0.5">{idea.contentType}</p>
+        </div>
+        <span className={`virality-score-badge ${badgeCls} flex-shrink-0`}>{score}</span>
+      </div>
+
+      <p className="text-sm text-text-secondary leading-relaxed">📝 {idea.concept}</p>
+
+      <p className="text-xs text-text-muted leading-relaxed">
+        {(idea.hashtags || []).join('  ')}
+      </p>
+
+      <p className="text-xs text-text-secondary italic">💡 {idea.reason}</p>
+
+      <div className="space-y-1">
+        <div className="virality-bar">
+          <div className={`virality-bar-fill ${barCls}`} style={{ '--virality-w': `${score}%` }} />
+        </div>
+        <p className="text-xs text-text-muted">{idea.viralityReason}</p>
+      </div>
+
+      <button onClick={() => onSchedule(idea)} className="btn-secondary w-full text-xs py-2">
+        📅 Añadir al Calendario
+      </button>
     </div>
   );
 }
 
 function IdeasTab({ posts, credentials }) {
-  const [platform, setPlatform]     = useState('Cualquiera');
+  const { dispatch } = useApp();
+  const [platform, setPlatform]       = useState('Cualquiera');
   const [contentType, setContentType] = useState('Cualquiera');
-  const [tone, setTone]             = useState('Auténtico y cercano');
-  const [count, setCount]           = useState(5);
-  const [result, setResult]         = useState('');
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState('');
+  const [tone, setTone]               = useState('Auténtico y cercano');
+  const [count, setCount]             = useState(5);
+  const [ideas, setIdeas]             = useState([]);
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState('');
+  const [scheduleIdea, setScheduleIdea] = useState(null);
 
   async function handleGenerate() {
     if (loading) return;
     setLoading(true);
     setError('');
     try {
-      const text = await generateContentIdeas(
-        credentials.openaiKey, posts,
+      const result = await generateContentIdeasStructured(
+        credentials.openaiKey,
+        posts,
         platform === 'Cualquiera' ? '' : platform,
         contentType === 'Cualquiera' ? '' : contentType,
-        tone, count,
+        tone,
+        count,
       );
-      setResult(text);
+      setIdeas(result);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleConfirmSchedule({ date, contentType: ct }) {
+    if (!scheduleIdea) return;
+    dispatch({
+      type: 'ADD_SCHEDULED_POST',
+      payload: {
+        id:            `post_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        title:         scheduleIdea.title,
+        concept:       scheduleIdea.concept,
+        hashtags:      scheduleIdea.hashtags || [],
+        contentType:   ct,
+        date,
+        viralityScore: scheduleIdea.viralityScore || 0,
+        viralityReason: scheduleIdea.viralityReason || '',
+        scheduledAt:   new Date().toISOString(),
+      },
+    });
+    setScheduleIdea(null);
   }
 
   return (
@@ -73,7 +196,9 @@ function IdeasTab({ posts, credentials }) {
           <div>
             <label className="label block mb-1.5">Plataforma</label>
             <select className="input-field py-2.5" value={platform} onChange={e => setPlatform(e.target.value)}>
-              {PLATFORMS.map(p => <option key={p} value={p}>{p === 'Cualquiera' ? 'Cualquier plataforma' : p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+              {PLATFORMS.map(p => (
+                <option key={p} value={p}>{p === 'Cualquiera' ? 'Cualquier plataforma' : p.charAt(0).toUpperCase() + p.slice(1)}</option>
+              ))}
             </select>
           </div>
           <div>
@@ -97,7 +222,14 @@ function IdeasTab({ posts, credentials }) {
           <label className="label block mb-1.5">
             Número de ideas: <span className="text-accent-DEFAULT font-bold normal-case">{count}</span>
           </label>
-          <input type="range" min={3} max={10} value={count} onChange={e => setCount(Number(e.target.value))} className="w-full cursor-pointer accent-accent-DEFAULT" />
+          <input
+            type="range"
+            min={3}
+            max={10}
+            value={count}
+            onChange={e => setCount(Number(e.target.value))}
+            className="w-full cursor-pointer accent-accent-DEFAULT"
+          />
           <div className="flex justify-between text-xs text-text-muted mt-1"><span>3</span><span>10</span></div>
         </div>
 
@@ -117,21 +249,33 @@ function IdeasTab({ posts, credentials }) {
         {error && <p className="text-red-600 text-sm">⚠️ {error}</p>}
       </div>
 
-      {result && (
-        <div className="card p-6 animate-slide-up">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display font-semibold text-text-primary" style={{ letterSpacing: '-0.02em' }}>Ideas generadas</h3>
-            <button onClick={() => navigator.clipboard.writeText(result)} className="btn-ghost text-xs py-1.5 px-3">Copiar todo</button>
+      {ideas.length > 0 && (
+        <div className="space-y-4 animate-slide-up">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display font-semibold text-text-primary">Ideas generadas</h3>
+            <button onClick={() => setIdeas([])} className="btn-ghost text-xs py-1.5 px-3">Limpiar</button>
           </div>
-          <FormattedOutput text={result} />
+          <div className="grid grid-cols-1 gap-4">
+            {ideas.map((idea, i) => (
+              <IdeaCard key={i} idea={idea} onSchedule={setScheduleIdea} />
+            ))}
+          </div>
         </div>
       )}
 
-      {!result && !loading && (
+      {ideas.length === 0 && !loading && (
         <div className="ideas-empty p-8 text-center">
           <SparkleIcon />
-          <p className="text-text-muted text-sm mt-3">Configura tus preferencias arriba y haz clic en Generar para obtener ideas de contenido impulsadas por IA.</p>
+          <p className="text-text-muted text-sm mt-3">Configura tus preferencias arriba y haz clic en Generar para obtener ideas con predicción de viralidad.</p>
         </div>
+      )}
+
+      {scheduleIdea && (
+        <ScheduleModal
+          idea={scheduleIdea}
+          onClose={() => setScheduleIdea(null)}
+          onConfirm={handleConfirmSchedule}
+        />
       )}
     </div>
   );
@@ -247,7 +391,7 @@ export default function AIIdeasSection() {
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="section-title">Ideas IA</h1>
-        <p className="text-text-secondary mt-2 text-sm">Generación de contenido potenciada por tus datos reales</p>
+        <p className="text-text-secondary mt-2 text-sm">Generación de contenido con predicción de viralidad basada en tus datos</p>
       </div>
 
       <div className="flex gap-2">
